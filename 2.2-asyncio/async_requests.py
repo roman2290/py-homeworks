@@ -1,15 +1,28 @@
 #! C:\Users\User\Desktop\py-homeworks\2.2-asyncio\venv\Scripts\python.exe
 
-
-import more_itertools
+from models import Base, engine
+from more_itertools import chunked
 import asyncio
 import aiohttp
 import datetime
 from models import Session, Person, init_orm, close_orm
 from aiohttp import ClientSession
-
+import more_itertools
 
 MAX_COROS = 10
+
+async def chunked_async(async_iter, size):
+    buffer = []
+    while True:
+        try:
+            item = await async_iter.__anext__()
+        except StopAsyncIteration:
+            break
+        buffer.append(item)
+        if len(buffer) == size:
+            yield buffer
+            buffer = []
+
 
 async def get_url(url, key, session):
     async with session.get(f'{url}') as response:
@@ -27,7 +40,7 @@ async def get_data(urls, key, session):
         result_list.append(item)
     return ', '.join(result_list)
 
-async def insert_people(json_list: list[dict]):
+async def insert_people(json_list):
     async with Session() as session:
         async with ClientSession() as session_deep:
             for person_json in json_list:
@@ -36,40 +49,37 @@ async def insert_people(json_list: list[dict]):
                 species_str = await get_data(person_json['species'], 'name', session_deep)
                 starships_str = await get_data(person_json['starships'], 'name', session_deep)
                 vehicles_str = await get_data(person_json['vehicles'], 'name', session_deep)
-                swapi_people_list = [Person(
-                        birth_year=item['birth_year'],
-                        eye_color=item['eye_color'],
-                        gender=item['gender'],
-                        hair_color=item['hair_color'],
-                        height=item['height'],
-                        mass=item['mass'],
-                        name=item['name'],
-                        skin_color=item['skin_color'],
+                swapi_people_list = Person(
+                        birth_year=person_json['birth_year'],
+                        eye_color=person_json['eye_color'],
+                        gender=person_json['gender'],
+                        hair_color=person_json['hair_color'],
+                        height=person_json['height'],
+                        mass=person_json['mass'],
+                        name=person_json['name'],
+                        skin_color=person_json['skin_color'],
                         homeworld=homeworld_str,
                         films=films_str,
                         species= species_str,
                         starships=starships_str,
-                        vehicle=vehicles_str) for item in json_list]
-        session.add_all(swapi_people_list)
-        await session.commit()
+                        vehicle=vehicles_str,) 
+                session.add(swapi_people_list)
+            await session.commit()
 
-
-async def get_person(person_id, http_session):
-    url = f'https://swapi.dev/api/people/{person_id}/'
+async def get_person(person_id: int, http_session: ClientSession):
+    url = f'https://swapi.dev/api/people/{person_id}'
     http_response = await http_session.get(url)
     json_data = await http_response.json()
     return json_data
 
 async def main():
     await init_orm()
-
-
     async with aiohttp.ClientSession() as session:
-        for i_list in more_itertools.chunked(range(1, 50), MAX_COROS):
+        for i_list in more_itertools.chunked(range(1, 10), MAX_COROS):
             coros = [get_person(i, http_session=session) for i in i_list]
             result = await asyncio.gather(*coros)
             coro = await insert_people(result)
-            asyncio.create_task(coro)
+            return coro
 
         tasks = asyncio.all_tasks()
         task_main = asyncio.current_task()
@@ -81,13 +91,3 @@ async def main():
 start = datetime.datetime.now()
 asyncio.run(main())
 print(datetime.datetime.now() - start)
-
-
-
-
-
-
-
-
-
-
