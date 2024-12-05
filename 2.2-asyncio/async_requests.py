@@ -8,6 +8,7 @@ import datetime
 from models import Session, Person, init_orm, close_orm
 from aiohttp import ClientSession
 import more_itertools
+from asyncio import sleep
 
 MAX_COROS = 10
 
@@ -67,10 +68,11 @@ async def insert_people(json_list):
             await session.commit()
 
 async def get_person(person_id: int, http_session: ClientSession):
-    url = f'https://swapi.dev/api/people/{person_id}'
-    http_response = await http_session.get(url)
-    json_data = await http_response.json()
-    return json_data
+    async with http_session.get( f'http://swapi.dev/api/people/{person_id}') as response:
+        if response.status == 404:
+            return {'status':404} 
+        json_data = await response.json()
+        return json_data
 
 async def main():
     await init_orm()
@@ -78,9 +80,8 @@ async def main():
         for i_list in more_itertools.chunked(range(1, 10), MAX_COROS):
             coros = [get_person(i, http_session=session) for i in i_list]
             result = await asyncio.gather(*coros)
-            coro = await insert_people(result)
-            return coro
-
+            await insert_people(result)
+           
         tasks = asyncio.all_tasks()
         task_main = asyncio.current_task()
         tasks.remove(task_main)
