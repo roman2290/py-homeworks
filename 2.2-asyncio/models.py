@@ -1,3 +1,7 @@
+#! C:\Users\User\Desktop\py-homeworks\2.2-asyncio\venv\Scripts\python.exe
+
+
+
 import os
 from sqlalchemy import Column, Integer, String, Text
 from sqlalchemy import JSON, Integer
@@ -38,7 +42,7 @@ class Person(Base):
     skin_color: Mapped[str] = mapped_column(String(100))
     species: Mapped[Text] = mapped_column(Text)
     starships: Mapped[Text] = mapped_column(Text)
-    vehicle: Mapped[Text] = mapped_column(Text)
+    vehicles: Mapped[Text] = mapped_column(Text)
 
  
 async def init_orm():
